@@ -30,12 +30,12 @@ class TestRaceWebhooks extends Command
         ];
 
         if ($this->option('parallel')) {
-            // нужен php artisan serve в другом окне
+            // serve в другом окне
             Http::pool(fn ($pool) => collect(range(1, $count))->map(
                 fn () => $pool->asJson()->post(url('/webhook/payment'), $payload),
             )->all());
         } else {
-            // без сервера — напрямую в сервис, удобнее для локальной проверки
+            // без сервера — напрямую в сервис, для локальной проверки
             for ($i = 0; $i < $count; $i++) {
                 $orders->handleWebhook($payload);
             }

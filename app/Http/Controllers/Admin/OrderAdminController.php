@@ -47,7 +47,7 @@ class OrderAdminController extends Controller
 
     private function checkToken(Request $request): void
     {
-        // для демки хватит токена в query, нормальный auth потом
+        // auth
         $token = config('marketplace.admin_token');
         if ($request->header('X-Admin-Token') !== $token && $request->query('token') !== $token) {
             abort(403, 'Invalid admin token');

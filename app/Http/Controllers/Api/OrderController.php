@@ -7,7 +7,6 @@ use App\Models\Order;
 use App\Services\OrderService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use InvalidArgumentException;
 
@@ -50,7 +49,8 @@ class OrderController extends Controller
 
         $order = $this->orders->findByPublicId($publicId);
 
-        // эмуляция платежки: хук сами себе
+        // эмуляция платежки тем же контрактом что и POST /webhook/payment
+        // напрямую в сервис: artisan serve и Http::post сам на себя таймаутится
         $payload = [
             'event_id' => 'evt_'.Str::lower(Str::random(12)),
             'order_id' => $order->public_id,
@@ -60,14 +60,10 @@ class OrderController extends Controller
             'created_at' => now()->toIso8601String(),
         ];
 
-        $response = Http::asJson()->timeout(10)->post(url('/webhook/payment'), $payload);
-
-        if (! $response->successful()) {
-            return response()->json(['message' => 'Webhook failed'], 500);
-        }
+        $webhook = $this->orders->handleWebhook($payload);
 
         return response()->json([
-            'webhook' => $response->json(),
+            'webhook' => $webhook,
             'order' => $this->toArray($order->fresh(['product', 'promoCode'])),
         ]);
     }
