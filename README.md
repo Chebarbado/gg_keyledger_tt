@@ -1,11 +1,16 @@
-Админка и ручная выдача /admin/orders?token=dev-admin-token
+Админка /admin/orders?token=dev-admin-token
 
 Методы API:
-GET /api/products Список товаров 
-POST /api/orders Создать заказ 
-GET /api/orders/{id} Статус JSON 
+GET /api/products Список товаров
+
+POST /api/orders Создать заказ
+
+GET /api/orders/{id} Статус JSON
+
 POST /api/orders/{id}/pay Эмуляция оплаты, вебхук 
+
 POST /webhook/payment Вход от «платёжки» 
+
 _____________________
 `POST /admin/orders/{id}/retry-delivery`  Ручная выдача 
 
