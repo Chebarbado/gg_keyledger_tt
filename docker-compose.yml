@@ -1,0 +1,17 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: ${APP_URL:-http://localhost:8000}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-dev-admin-token}
+      RUN_SEED: ${RUN_SEED:-true}
+    volumes:
+      - sqlite_data:/var/www/html/database
+    restart: unless-stopped
+
+volumes:
+  sqlite_data:
