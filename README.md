@@ -1,3 +1,5 @@
+PHP 8.3 + Laravel 13, БД: SQLite, CSS,  Vite 8 + vanilla JS 
+
 Админка /admin/orders?token=dev-admin-token
 
 Методы API:
