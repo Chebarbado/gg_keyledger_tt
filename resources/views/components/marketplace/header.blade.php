@@ -1,29 +1,29 @@
 <header class="relative sticky top-0 z-50 border-b border-[#f2f4f7] bg-white">
     <div class="relative mx-auto max-w-[1200px] px-4">
-        <div class="flex h-20 items-center gap-4">
-            <button type="button" data-catalog-toggle class="flex h-11 shrink-0 items-center gap-2 rounded-[10px] bg-black px-5 text-sm font-semibold text-white">
+        <div class="flex h-16 items-center gap-2 sm:h-20 sm:gap-4">
+            <button type="button" data-catalog-toggle class="flex h-10 shrink-0 items-center gap-2 rounded-[10px] bg-black px-3 text-sm font-semibold text-white sm:h-11 sm:px-5">
                 <img src="{{ asset('images/home/catalog.svg') }}" alt="" class="size-5" width="20" height="20">
-                Каталог
+                <span class="hidden sm:inline">Каталог</span>
             </button>
 
-            <div class="relative flex min-w-0 flex-1 items-center">
-                <div class="absolute inset-0 rounded-[10px] bg-black"></div>
-                <div class="relative m-1 flex h-10 flex-1 items-center rounded-lg bg-white pr-1">
+            {{-- чёрная рамка через padding, не absolute: иначе на узкой ширине иконки вылезают поверх --}}
+            <div class="flex min-w-0 flex-1 items-center overflow-hidden rounded-[10px] bg-black p-1">
+                <div class="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-white sm:h-10">
                     <input
                         type="search"
                         placeholder="Игра, приложение или услуга..."
-                        class="min-w-0 flex-1 bg-transparent px-4 text-xs font-semibold text-[#76829b] outline-none placeholder:text-[#76829b]"
+                        class="min-w-0 flex-1 truncate bg-transparent px-3 text-xs font-semibold text-[#76829b] outline-none placeholder:text-[#76829b] sm:px-4"
                     >
-                    <button type="button" class="mr-1 flex size-8 items-center justify-center rounded-md bg-[#eff1f5]">
+                    <button type="button" class="mr-1 flex size-8 shrink-0 items-center justify-center rounded-md bg-[#eff1f5]">
                         <img src="{{ asset('images/home/favorite.svg') }}" alt="Избранное" class="h-[13px] w-3.5" width="14" height="13">
                     </button>
-                    <button type="button" class="flex size-10 items-center justify-center rounded-lg bg-black">
+                    <button type="button" class="flex size-9 shrink-0 items-center justify-center rounded-lg bg-black sm:size-10">
                         <img src="{{ asset('images/home/search.svg') }}" alt="Поиск" class="size-5" width="20" height="20">
                     </button>
                 </div>
             </div>
 
-            <button type="button" class="flex size-11 shrink-0 items-center justify-center rounded-[10px] bg-[#f2f4f7]">
+            <button type="button" class="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[#f2f4f7] sm:size-11">
                 <img src="{{ asset('images/home/profile.svg') }}" alt="Профиль" class="size-5" width="20" height="20">
             </button>
         </div>
