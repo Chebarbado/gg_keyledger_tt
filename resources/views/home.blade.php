@@ -6,19 +6,7 @@
     <x-marketplace.header />
 
     <main class="mx-auto max-w-[1200px] space-y-8 px-4 py-6">
-        <section class="relative rounded-2xl bg-white" data-banner-carousel>
-            {{-- белый вырез под стрелки (как в Figma) --}}
-            <div class="absolute right-0 top-0 z-20 flex h-12 w-[110px] items-center justify-center">
-                <div class="flex h-10 w-[90px] items-center justify-between rounded-full border border-[#e5e9f1] bg-[#f4f5f7] p-1">
-                    <button type="button" data-banner-prev class="flex size-10 items-center justify-center rounded-full">
-                        <img src="{{ asset('images/home/arrow-left.svg') }}" alt="Назад" class="size-[22px]" width="22" height="22">
-                    </button>
-                    <button type="button" data-banner-next class="flex size-10 items-center justify-center rounded-full">
-                        <img src="{{ asset('images/home/arrow-right.svg') }}" alt="Вперёд" class="size-[22px]" width="22" height="22">
-                    </button>
-                </div>
-            </div>
-
+        <section class="relative" data-banner-carousel>
             @php
                 $bannerSlides = [
                     ['color' => '#2563eb', 'light' => false], // синий
@@ -30,40 +18,43 @@
                 ];
             @endphp
 
-            <div
-                class="relative h-[263px] w-full overflow-hidden rounded-2xl"
-                style="
-                    -webkit-mask-image: url('{{ asset('images/home/banner-mask.svg') }}');
-                    mask-image: url('{{ asset('images/home/banner-mask.svg') }}');
-                    -webkit-mask-size: 100% 100%;
-                    mask-size: 100% 100%;
-                    -webkit-mask-repeat: no-repeat;
-                    mask-repeat: no-repeat;
-                "
-            >
-                @foreach ($bannerSlides as $index => $slide)
-                    <div
-                        data-banner-slide
-                        data-banner-light="{{ $slide['light'] ? '1' : '0' }}"
-                        @class(['absolute inset-0 h-[263px] w-full', 'hidden' => $index !== 0])
-                        style="background-color: {{ $slide['color'] }}"
-                    ></div>
-                @endforeach
-            </div>
+            <div class="relative h-[263px] w-full overflow-hidden rounded-2xl bg-white">
+                {{-- маска ставится из JS: вырез 110px справа фиксированный при любой ширине --}}
+                <div class="absolute inset-0" data-banner-mask>
+                    @foreach ($bannerSlides as $index => $slide)
+                        <div
+                            data-banner-slide
+                            data-banner-light="{{ $slide['light'] ? '1' : '0' }}"
+                            @class(['absolute inset-0 h-full w-full', 'hidden' => $index !== 0])
+                            style="background-color: {{ $slide['color'] }}"
+                        ></div>
+                    @endforeach
+                </div>
 
-            {{-- индикатор справа внизу --}}
-            <div class="absolute bottom-4 z-10 flex gap-1" style="right: 16px; left: auto;">
-                @foreach ($bannerSlides as $index => $slide)
-                    <button
-                        type="button"
-                        data-banner-dot
-                        @class([
-                            'h-1 w-5 rounded-full',
-                            'bg-white' => $index === 0,
-                            'bg-white/45' => $index !== 0,
-                        ])
-                    ></button>
-                @endforeach
+                <div class="absolute right-0 top-0 z-20 flex h-12 w-[98px] items-center justify-center">
+                    <div class="flex h-10 w-[90px] items-center justify-between rounded-full border border-[#e5e9f1] bg-[#f4f5f7] p-1">
+                        <button type="button" data-banner-prev class="flex size-10 items-center justify-center rounded-full">
+                            <img src="{{ asset('images/home/arrow-left.svg') }}" alt="Назад" class="size-[22px]" width="22" height="22">
+                        </button>
+                        <button type="button" data-banner-next class="flex size-10 items-center justify-center rounded-full">
+                            <img src="{{ asset('images/home/arrow-right.svg') }}" alt="Вперёд" class="size-[22px]" width="22" height="22">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="absolute bottom-4 z-10 flex gap-1" style="right: 16px;">
+                    @foreach ($bannerSlides as $index => $slide)
+                        <button
+                            type="button"
+                            data-banner-dot
+                            @class([
+                                'h-1 w-5 rounded-full',
+                                'bg-white' => $index === 0,
+                                'bg-white/45' => $index !== 0,
+                            ])
+                        ></button>
+                    @endforeach
+                </div>
             </div>
         </section>
 

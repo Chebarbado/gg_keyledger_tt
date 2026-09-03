@@ -2,10 +2,45 @@ document.addEventListener('DOMContentLoaded', () => {
     // баннер
     const carousel = document.querySelector('[data-banner-carousel]');
     if (carousel) {
+        const maskEl = carousel.querySelector('[data-banner-mask]');
         const slides = [...carousel.querySelectorAll('[data-banner-slide]')];
         const dots = [...carousel.querySelectorAll('[data-banner-dot]')];
         let i = 0;
         let timer;
+
+        // Figma Subtract: из баннера вырезан rounded-rect 98×48 справа сверху
+        // (node Rectangle 41234). Path как в banner-mask.svg, ширина = реальная.
+        const applyBannerMask = () => {
+            if (!maskEl) return;
+            const w = Math.max(200, Math.round(maskEl.getBoundingClientRect().width));
+            const h = 263;
+            const d = [
+                `M${w - 110} 0`,
+                `C${w - 103.37} 0 ${w - 98} 5.37258 ${w - 98} 12`,
+                `V26`,
+                `C${w - 98} 38.1503 ${w - 88.15} 48 ${w - 76} 48`,
+                `H${w - 12}`,
+                `C${w - 5.37} 48 ${w} 53.3726 ${w} 60`,
+                `V${h - 12}`,
+                `C${w} ${h - 5.373} ${w - 5.373} ${h} ${w - 12} ${h}`,
+                `H12`,
+                `C5.37258 ${h} 0 ${h - 5.373} 0 ${h - 12}`,
+                `V12`,
+                `C0 5.37258 5.37258 0 12 0`,
+                `H${w - 110}Z`,
+            ].join('');
+            const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><path fill="white" d="${d}"/></svg>`;
+            const url = `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+            maskEl.style.webkitMaskImage = url;
+            maskEl.style.maskImage = url;
+            maskEl.style.webkitMaskSize = '100% 100%';
+            maskEl.style.maskSize = '100% 100%';
+            maskEl.style.webkitMaskRepeat = 'no-repeat';
+            maskEl.style.maskRepeat = 'no-repeat';
+        };
+
+        applyBannerMask();
+        window.addEventListener('resize', applyBannerMask);
 
         const show = (n) => {
             i = (n + slides.length) % slides.length;
@@ -147,6 +182,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const promoInput = document.querySelector('[data-promo-input]');
 
+    // UUID через randomUUID только на HTTPS/localhost; на http://IP падает → «Сеть недоступна»
+    const newIdempotencyKey = (sku) => {
+        let uuid;
+        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+            try {
+                uuid = crypto.randomUUID();
+            } catch (_) {
+                uuid = null;
+            }
+        }
+        if (!uuid && typeof crypto !== 'undefined' && crypto.getRandomValues) {
+            const bytes = crypto.getRandomValues(new Uint8Array(16));
+            uuid = [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+        }
+        if (!uuid) {
+            uuid = Date.now().toString(36) + Math.random().toString(36).slice(2);
+        }
+        return 'buy-' + sku + '-' + uuid;
+    };
+
     // Купить / Оплатить (пополнение) — один флоу: создать заказ → страница статуса
     const createOrder = async (btn) => {
         if (btn.disabled) return;
@@ -158,7 +213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 body: JSON.stringify({
                     sku: btn.dataset.sku,
                     promo_code: promoInput?.value?.trim() || null,
-                    idempotency_key: 'buy-' + btn.dataset.sku + '-' + crypto.randomUUID(),
+                    idempotency_key: newIdempotencyKey(btn.dataset.sku),
                 }),
             });
             const data = await res.json();

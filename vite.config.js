@@ -11,6 +11,8 @@ export default defineConfig({
             fonts: [
                 bunny('Montserrat', {
                     weights: [400, 500, 600, 700, 800, 900],
+                    // без cyrillic кириллица шла системным шрифтом → «разные» шрифты рядом с латиницей
+                    subsets: ['latin', 'latin-ext', 'cyrillic', 'cyrillic-ext'],
                 }),
             ],
         }),
