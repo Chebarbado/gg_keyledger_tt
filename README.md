@@ -1,3 +1,5 @@
+PHP 8.3 + Laravel 13, БД: SQLite, CSS,  Vite 8 + vanilla JS 
+
 Админка /admin/orders?token=dev-admin-token
 
 Методы API:
@@ -28,3 +30,17 @@ php artisan test:race-webhooks ord_abc123xyz --count=50 --event-id=evt_same
 php artisan test:race-promo LIMIT3 --attempts=10
 
 Или все тесты сразу (php artisan test) : PaymentWebhookTest, KeyDeliveryRaceTest, PromoCodeRaceTest, OutOfStockRecoveryTest
+
+Для проверки на сервере: 
+
+Создать заказ: 
+
+curl -s -X POST "http://194.87.26.51:8088/api/orders" ^
+  -H "Content-Type: application/json" -H "Accept: application/json" ^
+  -d "{\"sku\":\"STEAM-TOPUP-500\",\"idempotency_key\":\"demo-1\"}"
+
+Вебхук:
+
+curl -s -X POST "http://194.87.26.51:8088/webhook/payment" ^
+  -H "Content-Type: application/json" -H "Accept: application/json" ^
+  -d "{\"event_id\":\"evt_demo_001\",\"order_id\":\"ord_XXXX\",\"status\":\"paid\",\"amount\":500,\"currency\":\"RUB\"}"
