@@ -42,7 +42,7 @@
             </dl>
 
             @if ($order->status === 'created')
-                <div class="mt-6 flex flex-wrap gap-3">
+                <div class="mt-6">
                     <button
                         type="button"
                         data-pay-steam
@@ -50,21 +50,26 @@
                         data-pay-result="paid"
                         class="rounded-xl bg-black px-5 py-3 text-sm font-bold text-white"
                     >
-                        Оплатить (успех)
-                    </button>
-                    <button
-                        type="button"
-                        data-pay-steam
-                        data-order-id="{{ $order->public_id }}"
-                        data-pay-result="failed"
-                        class="rounded-xl bg-[#e8eaed] px-5 py-3 text-sm font-bold text-heading"
-                    >
-                        Оплатить (неуспех)
+                        Оплатить
                     </button>
                 </div>
             @endif
 
             <a href="{{ url('/') }}" class="mt-6 inline-block text-sm font-semibold text-heading underline">Вернуться на главную</a>
         </section>
+
+        @if ($order->status === 'created')
+            <div class="px-1">
+                <button
+                    type="button"
+                    data-pay-steam
+                    data-order-id="{{ $order->public_id }}"
+                    data-pay-result="failed"
+                    class="rounded-xl border border-[#e8eaed]/60 bg-white/40 px-4 py-2 text-xs font-medium text-muted/70 transition hover:bg-white/60 hover:text-muted"
+                >
+                    Оплата не прошла (тесты)
+                </button>
+            </div>
+        @endif
     </main>
 @endsection

@@ -38,6 +38,7 @@ RUN apk add --no-cache \
         git \
         unzip \
         sqlite-libs \
+        sqlite-dev \
         libzip-dev \
         oniguruma-dev \
     && docker-php-ext-install \
@@ -51,7 +52,13 @@ WORKDIR /var/www/html
 COPY --from=vendor /app /var/www/html
 COPY --from=frontend /app/public/build /var/www/html/public/build
 
-RUN mkdir -p storage/framework/{cache,sessions,views} storage/logs bootstrap/cache database \
+RUN mkdir -p \
+        storage/framework/cache \
+        storage/framework/sessions \
+        storage/framework/views \
+        storage/logs \
+        bootstrap/cache \
+        database \
     && chmod -R ug+rwx storage bootstrap/cache database
 
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh

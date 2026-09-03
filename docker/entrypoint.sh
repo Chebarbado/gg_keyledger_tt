@@ -35,7 +35,13 @@ set_env ADMIN_TOKEN "${ADMIN_TOKEN:-secret}"
 set_env DB_CONNECTION "${DB_CONNECTION:-sqlite}"
 set_env LOG_CHANNEL "${LOG_CHANNEL:-stderr}"
 
-mkdir -p database storage/framework/{cache,sessions,views} storage/logs bootstrap/cache
+mkdir -p \
+    database \
+    storage/framework/cache \
+    storage/framework/sessions \
+    storage/framework/views \
+    storage/logs \
+    bootstrap/cache
 touch database/database.sqlite
 chmod -R ug+rwx storage bootstrap/cache database
 
@@ -48,8 +54,9 @@ if [ "${RUN_SEED:-true}" = "true" ]; then
 fi
 
 php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+php artisan route:cache || true
+# view:cache иногда падает в контейнере — для демо не критично
+# php artisan view:cache
 
 echo "App ready: ${APP_URL:-http://localhost:8000}"
 echo "Admin: ${APP_URL:-http://localhost:8000}/admin/orders?token=${ADMIN_TOKEN:-secret}"
