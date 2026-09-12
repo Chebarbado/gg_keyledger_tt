@@ -1,94 +1,35 @@
 PHP 8.3 + Laravel 13, БД: SQLite, CSS,  Vite 8 + vanilla JS 
 
-# Магазин цифровых товаров (KeyLedger)
+Админка /admin/orders?token=dev-admin-token
 
-Laravel + SQLite. Витрина → заказ → вебхук → выдача ключа.
+Методы API:
+GET /api/products Список товаров
 
-## Быстрый старт (Docker)
+POST /api/orders Создать заказ
 
-Нужен только установленный Docker Desktop / Docker Engine.
+GET /api/orders/{id} Статус JSON
 
-```bash
-docker compose up --build
-```
+POST /api/orders/{id}/pay Эмуляция оплаты, вебхук 
 
-Открыть: http://localhost:8000
+POST /webhook/payment Вход от «платёжки» 
 
-Админка: http://localhost:8000/admin/orders?token=secret
+_____________________
+`POST /admin/orders/{id}/retry-delivery`  Ручная выдача 
 
-Остановка:
+Вебхуки пишутся в `payment_events` с unique `event_id`, поэтому дубли безопасны; если вебхук пришёл раньше заказа — событие лежит pending и догоняется при create.
 
-```bash
-docker compose down
-```
+1. Создать заказ через UI (или API), не оплачивать, взять `order_id` со страницы статуса (например `ord_abc123xyz`).
+2. Запустить 50 вебхуков с одним `event_id`:
 
-Сброс БД (удалить volume и поднять заново):
+php artisan test:race-webhooks ord_abc123xyz --count=50
 
-```bash
-docker compose down -v
-docker compose up --build
-```
-
-Готовые значения в `docker-compose.yml`:
-
-| Переменная | Значение |
-|------------|----------|
-| `APP_KEY` | `base64:YgBs7PrUgmEkbHc/BIOYdQl6rUw09srqJ8w0RMOF/1s=` |
-| `ADMIN_TOKEN` | `secret` |
-| `APP_URL` | `http://localhost:8000` |
-| `RUN_SEED` | `true` (товары, ключи, промокоды) |
-
-Порт снаружи можно сменить: `APP_PORT=8080 docker compose up --build`
-
----
-
-## Локально без Docker
-
-```bash
-composer install
-copy .env.example .env
-php artisan key:generate
-php artisan migrate:fresh --seed
-npm install && npm run build
-php artisan serve
-```
-
----
-
-## API
-
-| Метод | Путь | Назначение |
-|--------|------|------------|
-| `GET` | `/api/products` | Список товаров |
-| `POST` | `/api/orders` | Создать заказ |
-| `GET` | `/api/orders/{id}` | Статус JSON |
-| `POST` | `/api/orders/{id}/pay` | Эмуляция оплаты → вебхук |
-| `POST` | `/webhook/payment` | Вход от «платёжки» |
-| `POST` | `/admin/orders/{id}/retry-delivery` | Ручная выдача |
-
-Вебхуки пишутся в `payment_events` с unique `event_id`. Если вебхук пришёл раньше заказа — событие pending и догоняется при create.
-
----
-
-## Проверка гонок
-
-1. Создать заказ через UI, **не** оплачивать, взять `order_id` (например `ord_abc123xyz`).
-2. Запустить:
-
-```bash
-# внутри контейнера:
-docker compose exec app php artisan test:race-webhooks ord_abc123xyz --count=50
-
+Идемпотентность:
 php artisan test:race-webhooks ord_abc123xyz --count=50 --event-id=evt_same
+
+Промокоды:
 php artisan test:race-promo LIMIT3 --attempts=10
-php artisan test
-```
 
----
-
-## Render
-
-Инструкция: [RENDER.md](./RENDER.md)
+Или все тесты сразу (php artisan test) : PaymentWebhookTest, KeyDeliveryRaceTest, PromoCodeRaceTest, OutOfStockRecoveryTest
 
 Для проверки на сервере: 
 
