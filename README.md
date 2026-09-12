@@ -29,7 +29,8 @@ php artisan serve
 ```
 
 
-Методы API:
+# Методы API:
+
 GET /api/products Список товаров
 
 POST /api/orders Создать заказ
@@ -58,15 +59,15 @@ php artisan test:race-promo LIMIT3 --attempts=10
 
 Или все тесты сразу (php artisan test) : PaymentWebhookTest, KeyDeliveryRaceTest, PromoCodeRaceTest, OutOfStockRecoveryTest, ReservationTest, LastUnitRaceTest, CatalogRealtimeTest
 
-Для проверки на сервере: 
+# Для проверки на сервере: 
 
-Создать заказ: 
+# Создать заказ: 
 
 curl -s -X POST "http://194.87.26.51:8088/api/orders" ^
   -H "Content-Type: application/json" -H "Accept: application/json" ^
   -d "{\"sku\":\"STEAM-TOPUP-500\",\"idempotency_key\":\"demo-1\"}"
 
-Вебхук:
+# Вебхук:
 
 curl -s -X POST "http://194.87.26.51:8088/webhook/payment" ^
   -H "Content-Type: application/json" -H "Accept: application/json" ^
@@ -85,7 +86,8 @@ curl -s -X POST "http://194.87.26.51:8088/webhook/payment" ^
 - 1.На /tests?token=secret у ключа поставить stock = 1 → Сохранить.
 - 2.Две вкладки витрины — найти карточку.
 - 3.Почти одновременно нажать Купить в обоих окнах.
-- Результат:
-****один → страница заказа со статусом reserved и таймером;
+  
+Результат:
+- один → страница заказа со статусом reserved и таймером;
 - второй → алерт вроде «Товар только что раскупили» и возврат на витрину.
 
