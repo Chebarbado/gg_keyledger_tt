@@ -16,7 +16,21 @@ class Product extends Model
         'price',
         'currency',
         'image',
+        'stock',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'price' => 'integer',
+            'stock' => 'integer',
+        ];
+    }
+
+    public function isAvailable(): bool
+    {
+        return $this->stock > 0;
+    }
 
     public function orders(): HasMany
     {

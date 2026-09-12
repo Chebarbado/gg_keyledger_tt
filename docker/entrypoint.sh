@@ -34,6 +34,8 @@ set_env APP_URL "${APP_URL:-http://localhost:8000}"
 set_env ADMIN_TOKEN "${ADMIN_TOKEN:-secret}"
 set_env DB_CONNECTION "${DB_CONNECTION:-sqlite}"
 set_env LOG_CHANNEL "${LOG_CHANNEL:-stderr}"
+set_env RESERVATION_TTL "${RESERVATION_TTL:-120}"
+set_env CACHE_STORE "${CACHE_STORE:-database}"
 
 mkdir -p \
     database \

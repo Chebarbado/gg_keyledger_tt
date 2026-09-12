@@ -25,9 +25,15 @@ class ProductSeeder extends Seeder
         ];
 
         foreach ($products as $product) {
+            $stock = match ($product['type']) {
+                'key' => $product['sku'] === 'KEY-GTA5' ? 1 : 10,
+                'topup' => 50,
+                default => 20,
+            };
+
             Product::query()->updateOrCreate(
                 ['sku' => $product['sku']],
-                array_merge($product, ['currency' => 'RUB']),
+                array_merge($product, ['currency' => 'RUB', 'stock' => $stock]),
             );
         }
     }

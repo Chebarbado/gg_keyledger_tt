@@ -218,6 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const data = await res.json();
             if (!res.ok) {
+                // 409 — последний ушёл под другого, остальное — обычная ошибка
+                if (res.status === 409 && data.code === 'out_of_stock') {
+                    alert(data.message + '\nМожно выбрать другой товар на витрине.');
+                    location.href = '/';
+                    return;
+                }
                 alert(data.message || 'Ошибка создания заказа');
                 return;
             }
@@ -233,6 +239,96 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.addEventListener('click', () => createOrder(btn));
     });
 
+    // живая витрина: polling вместо SSE — на artisan serve/docker один воркер не душит
+    const applyProductEvent = (ev) => {
+        const card = document.querySelector(`[data-product-card][data-sku="${ev.sku}"]`);
+        if (!card) return;
+
+        const stock = Number(ev.stock ?? 0);
+        const price = Number(ev.price ?? card.dataset.price);
+        const available = stock > 0;
+
+        card.dataset.stock = String(stock);
+        card.dataset.price = String(price);
+
+        const priceEl = card.querySelector('[data-product-price]');
+        if (priceEl) {
+            priceEl.textContent = price.toLocaleString('ru-RU') + ' ₽';
+        }
+
+        const stockEl = card.querySelector('[data-product-stock]');
+        if (stockEl) {
+            stockEl.textContent = available ? 'В наличии: ' + stock : 'Нет в наличии';
+        }
+
+        const buyBtn = card.querySelector('[data-buy-button]');
+        if (buyBtn) {
+            buyBtn.disabled = !available;
+            buyBtn.textContent = available ? 'Купить' : 'Раскупили';
+        }
+    };
+
+    const startCatalogPoll = () => {
+        if (!document.querySelector('[data-product-card]')) return;
+
+        let version = 0;
+        const tick = async () => {
+            try {
+                const res = await fetch('/api/products/changes?since=' + version, {
+                    headers: { Accept: 'application/json' },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                version = data.version ?? version;
+                (data.events || []).forEach(applyProductEvent);
+            } catch (_) {
+                // сеть отвалилась — следующий тик подхватит
+            }
+        };
+
+        tick();
+        setInterval(tick, 1500);
+    };
+    startCatalogPoll();
+
+    // поиск по карточкам на странице + ?q= в URL (без мигания перезагрузки)
+    const searchInput = document.querySelector('[data-catalog-search]');
+    if (searchInput) {
+        const cards = [...document.querySelectorAll('[data-product-card]')];
+        let searchTimer;
+        let searchSeq = 0;
+
+        const applySearch = (q) => {
+            const seq = ++searchSeq;
+            const needle = q.trim().toLowerCase();
+            // чуть подождать — иначе на каждой букве дёргается
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(() => {
+                if (seq !== searchSeq) return;
+                cards.forEach((card) => {
+                    const hay = (
+                        (card.dataset.sku || '') +
+                        ' ' +
+                        (card.querySelector('h3')?.textContent || '')
+                    ).toLowerCase();
+                    const show = !needle || hay.includes(needle);
+                    card.classList.toggle('hidden', !show);
+                });
+                const url = new URL(location.href);
+                if (needle) url.searchParams.set('q', needle);
+                else url.searchParams.delete('q');
+                history.replaceState(null, '', url);
+            }, 180);
+        };
+
+        const initialQ = new URL(location.href).searchParams.get('q') || '';
+        if (initialQ) {
+            searchInput.value = initialQ;
+            applySearch(initialQ);
+        }
+        searchInput.addEventListener('input', () => applySearch(searchInput.value));
+    }
+
     document.querySelectorAll('[data-pay-steam]').forEach((btn) => {
         btn.addEventListener('click', async () => {
             btn.disabled = true;
@@ -245,6 +341,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const data = await res.json();
                 if (!res.ok) {
                     alert(data.message || 'Ошибка оплаты');
+                    location.reload();
                     return;
                 }
                 location.reload();
@@ -253,4 +350,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+
+    // обратный отсчёт брони на странице заказа
+    const timerBox = document.querySelector('[data-reservation-timer]');
+    if (timerBox) {
+        const until = Date.parse(timerBox.dataset.until);
+        const label = timerBox.querySelector('[data-reservation-left]');
+        const tick = () => {
+            const left = Math.max(0, Math.floor((until - Date.now()) / 1000));
+            const m = String(Math.floor(left / 60)).padStart(2, '0');
+            const s = String(left % 60).padStart(2, '0');
+            if (label) label.textContent = m + ':' + s;
+            if (left <= 0) {
+                clearInterval(iv);
+                location.reload(); // сервер снимет бронь при загрузке
+            }
+        };
+        tick();
+        const iv = setInterval(tick, 1000);
+    }
 });

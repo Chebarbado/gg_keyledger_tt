@@ -18,10 +18,28 @@ class Order extends Model
         'final_amount',
         'currency',
         'status',
+        'reserved_until',
         'issued_code',
         'promo_code_id',
         'idempotency_key',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'reserved_until' => 'datetime',
+            'amount' => 'integer',
+            'discount_amount' => 'integer',
+            'final_amount' => 'integer',
+        ];
+    }
+
+    public function isReserved(): bool
+    {
+        return $this->status === 'reserved'
+            && $this->reserved_until
+            && $this->reserved_until->isFuture();
+    }
 
     public function product(): BelongsTo
     {

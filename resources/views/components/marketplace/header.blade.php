@@ -11,6 +11,7 @@
                 <div class="flex h-9 min-w-0 flex-1 items-center rounded-lg bg-white sm:h-10">
                     <input
                         type="search"
+                        data-catalog-search
                         placeholder="Игра, приложение или услуга..."
                         class="min-w-0 flex-1 truncate bg-transparent px-3 text-xs font-semibold text-[#76829b] outline-none placeholder:text-[#76829b] sm:px-4"
                     >

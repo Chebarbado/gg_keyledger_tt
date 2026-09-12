@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\OutOfStockException;
 use App\Models\LicenseKey;
 use App\Models\Order;
 use App\Models\PaymentEvent;
@@ -14,9 +15,11 @@ use InvalidArgumentException;
 
 class OrderService
 {
+    public function __construct(private ProductBroadcast $broadcast) {}
+
     public function create(string $sku, ?string $promoCode = null, ?string $idempotencyKey = null): Order
     {
-        // двойной клик на купить — тот же ключ, тот же заказ
+        // двойной клик — тот же ключ, тот же заказ
         if ($idempotencyKey) {
             $existing = Order::where('idempotency_key', $idempotencyKey)->first();
             if ($existing) {
@@ -24,9 +27,16 @@ class OrderService
             }
         }
 
-        $product = Product::where('sku', $sku)->firstOrFail();
+        // сначала отпускаем чужие просрочки, потом уже лезем в транзакцию за единицей
+        $this->expireReservations();
 
-        return DB::transaction(function () use ($product, $promoCode, $idempotencyKey) {
+        return DB::transaction(function () use ($sku, $promoCode, $idempotencyKey) {
+            $product = Product::where('sku', $sku)->lockForUpdate()->firstOrFail();
+
+            if ($product->stock < 1) {
+                throw new OutOfStockException;
+            }
+
             $amount = $product->price;
             $discount = 0;
             $promo = null;
@@ -46,6 +56,8 @@ class OrderService
                     : min($promo->value, $amount);
             }
 
+            $ttl = (int) config('marketplace.reservation_ttl', 120);
+
             $order = Order::create([
                 'public_id' => 'ord_'.Str::lower(Str::random(10)),
                 'product_id' => $product->id,
@@ -54,13 +66,18 @@ class OrderService
                 'discount_amount' => $discount,
                 'final_amount' => max(0, $amount - $discount),
                 'currency' => $product->currency,
-                'status' => 'created',
+                'status' => 'reserved',
+                'reserved_until' => now()->addSeconds($ttl),
                 'promo_code_id' => $promo?->id,
                 'idempotency_key' => $idempotencyKey,
             ]);
 
+            // единицу со склада забираем сразу — иначе двое утащат последний
+            $product->decrement('stock');
+            $product->refresh();
+            $this->broadcast->bump($product);
+
             if ($promo) {
-                // ещё раз под локом — на случай гонки
                 $promo = PromoCode::whereKey($promo->id)->lockForUpdate()->firstOrFail();
                 if ($promo->used_count >= $promo->max_uses) {
                     throw new InvalidArgumentException('Promo code usage limit reached.');
@@ -75,9 +92,51 @@ class OrderService
 
     public function findByPublicId(string $publicId): Order
     {
-        return Order::with(['product', 'promoCode'])
+        $order = Order::with(['product', 'promoCode'])
             ->where('public_id', $publicId)
             ->firstOrFail();
+
+        // открыли просроченный заказ — сразу отпускаем склад
+        if ($order->status === 'reserved' && $order->reserved_until && $order->reserved_until->isPast()) {
+            $this->expireReservations();
+            $order->refresh()->load(['product', 'promoCode']);
+        }
+
+        return $order;
+    }
+
+    /** снимает просроченные брони и возвращает единицы на склад */
+    public function expireReservations(): int
+    {
+        $expired = Order::query()
+            ->where('status', 'reserved')
+            ->whereNotNull('reserved_until')
+            ->where('reserved_until', '<=', now())
+            ->orderBy('id')
+            ->get();
+
+        $count = 0;
+
+        foreach ($expired as $order) {
+            DB::transaction(function () use ($order, &$count) {
+                $locked = Order::whereKey($order->id)->lockForUpdate()->first();
+                if (! $locked || $locked->status !== 'reserved') {
+                    return;
+                }
+                if ($locked->reserved_until && $locked->reserved_until->isFuture()) {
+                    return;
+                }
+
+                $this->releaseStock($locked);
+                $locked->update([
+                    'status' => 'expired',
+                    'reserved_until' => null,
+                ]);
+                $count++;
+            });
+        }
+
+        return $count;
     }
 
     public function handleWebhook(array $payload): array
@@ -94,6 +153,8 @@ class OrderService
                 'order_status' => $existing->order?->status,
             ];
         }
+
+        $this->expireReservations();
 
         return DB::transaction(function () use ($payload, $eventId, $orderPublicId) {
             $order = Order::where('public_id', $orderPublicId)->lockForUpdate()->first();
@@ -162,6 +223,7 @@ class OrderService
                     $order->update([
                         'status' => 'delivered',
                         'issued_code' => $result['code'],
+                        'reserved_until' => null,
                     ]);
 
                     return $order->fresh();
@@ -226,6 +288,48 @@ class OrderService
         });
     }
 
+    /** подтянуть сумму заказа к текущей цене товара, пока ещё в брони */
+    public function syncPriceIfReserved(Order $order): Order
+    {
+        return DB::transaction(function () use ($order) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($order->status !== 'reserved') {
+                return $order->fresh(['product', 'promoCode']);
+            }
+
+            $product = Product::whereKey($order->product_id)->lockForUpdate()->firstOrFail();
+            if ($product->price === $order->amount) {
+                return $order->fresh(['product', 'promoCode']);
+            }
+
+            $amount = $product->price;
+            $discount = 0;
+            if ($order->promo_code_id && $order->promoCode) {
+                $promo = $order->promoCode;
+                $discount = $promo->type === 'percent'
+                    ? (int) floor($amount * $promo->value / 100)
+                    : min($promo->value, $amount);
+            }
+
+            $order->update([
+                'amount' => $amount,
+                'discount_amount' => $discount,
+                'final_amount' => max(0, $amount - $discount),
+            ]);
+
+            return $order->fresh(['product', 'promoCode']);
+        });
+    }
+
+    private function releaseStock(Order $order): void
+    {
+        $product = Product::whereKey($order->product_id)->lockForUpdate()->first();
+        if ($product) {
+            $product->increment('stock');
+            $this->broadcast->bump($product->fresh());
+        }
+    }
+
     private function applyPaymentEvent(PaymentEvent $event, Order $order): array
     {
         if ($event->processed) {
@@ -233,15 +337,29 @@ class OrderService
         }
 
         // уже финал — просто помечаем событие
-        if (in_array($order->status, ['delivered', 'payment_failed'], true)) {
+        if (in_array($order->status, ['delivered', 'payment_failed', 'expired'], true)) {
             $event->update(['processed' => true, 'order_id' => $order->id]);
 
             return ['accepted' => true, 'order_status' => $order->status];
         }
 
+        // бронь протухла — склад уже вернули (или вернём), оплату не принимаем
+        if ($order->status === 'reserved' && $order->reserved_until && $order->reserved_until->isPast()) {
+            $this->releaseStock($order);
+            $order->update(['status' => 'expired', 'reserved_until' => null]);
+            $event->update(['processed' => true, 'order_id' => $order->id]);
+
+            return ['accepted' => true, 'order_status' => 'expired', 'message' => 'Reservation expired'];
+        }
+
+        $payable = in_array($order->status, ['created', 'reserved'], true);
+
         if ($event->status === 'failed') {
-            if ($order->status === 'created') {
-                $order->update(['status' => 'payment_failed']);
+            if ($payable) {
+                if ($order->status === 'reserved') {
+                    $this->releaseStock($order);
+                }
+                $order->update(['status' => 'payment_failed', 'reserved_until' => null]);
             }
             $event->update(['processed' => true, 'order_id' => $order->id]);
 
@@ -249,8 +367,13 @@ class OrderService
         }
 
         if ($event->status === 'paid') {
-            if ($order->status === 'created') {
-                $order->update(['status' => 'paid']);
+            if ($payable) {
+                $order->update(['status' => 'paid', 'reserved_until' => null]);
+            } elseif (in_array($order->status, ['paid', 'delivering', 'delivered'], true)) {
+                // повторная оплата уже оплаченного — no-op
+                $event->update(['processed' => true, 'order_id' => $order->id]);
+
+                return ['accepted' => true, 'duplicate' => true, 'order_status' => $order->status];
             }
             $event->update(['processed' => true, 'order_id' => $order->id]);
 

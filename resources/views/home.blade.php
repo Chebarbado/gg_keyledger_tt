@@ -183,6 +183,7 @@
                         :price="$product->price"
                         :old-price="$product->price + 500"
                         :image="$product->image"
+                        :stock="$product->stock"
                     />
                 @endforeach
             </div>

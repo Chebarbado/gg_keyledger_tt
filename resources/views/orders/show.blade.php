@@ -10,6 +10,31 @@
             <h1 class="text-2xl font-bold text-heading">Статус заказа</h1>
             <p class="mt-2 text-sm text-muted">ID: <span class="font-semibold text-text">{{ $order->public_id }}</span></p>
 
+            @if ($order->status === 'reserved' && $order->reserved_until)
+                <div
+                    class="mt-4 rounded-xl bg-[#fff8e6] px-4 py-3 text-sm font-semibold text-[#8a5a00]"
+                    data-reservation-timer
+                    data-until="{{ $order->reserved_until->toIso8601String() }}"
+                >
+                    Бронь держится ещё <span data-reservation-left>—:—</span>
+                </div>
+            @endif
+
+            @if ($order->status === 'expired')
+                <div class="mt-4 rounded-xl bg-[#fff2f2] px-4 py-3 text-sm font-semibold text-[#b42318]">
+                    Время брони вышло — товар снова доступен всем. Можно выбрать его заново на витрине.
+                </div>
+            @endif
+
+            @if ($order->status === 'reserved' && isset($priceChangedFrom) && $priceChangedFrom !== null)
+                <div class="mt-4 rounded-xl border border-[#f2d9a6] bg-[#fffdf6] px-4 py-3 text-sm text-heading">
+                    Цена изменилась, пока заказ в брони:
+                    было {{ number_format($priceChangedFrom, 0, ',', ' ') }} ₽,
+                    сейчас {{ number_format($order->amount, 0, ',', ' ') }} ₽.
+                    К оплате уже актуальная сумма.
+                </div>
+            @endif
+
             <dl class="mt-6 space-y-3 text-sm">
                 <div class="flex justify-between gap-4">
                     <dt class="text-muted">Товар</dt>
@@ -41,7 +66,7 @@
                 @endif
             </dl>
 
-            @if ($order->status === 'created')
+            @if ($order->status === 'reserved')
                 <div class="mt-6">
                     <button
                         type="button"
@@ -58,7 +83,7 @@
             <a href="{{ url('/') }}" class="mt-6 inline-block text-sm font-semibold text-heading underline">Вернуться на главную</a>
         </section>
 
-        @if ($order->status === 'created')
+        @if ($order->status === 'reserved')
             <div class="px-1">
                 <button
                     type="button"
